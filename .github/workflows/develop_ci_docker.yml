@@ -1,0 +1,47 @@
+name: Docker Push on PR Target
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  docker-build-and-push:
+    runs-on: ubuntu-latest
+
+    env:
+      GIT_USERNAME: ${{ secrets.GIT_USERNAME }}
+      GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 21
+
+      - run: chmod +x ./gradlew
+
+      - name: Run tests
+        run: ./gradlew test
+
+      - name: Build JAR
+        run: ./gradlew build
+
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            sunwoo11/keywe_entrance_service:latest
+            sunwoo11/keywe_entrance_service:dev
