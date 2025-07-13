@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: entrance-service
+
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL}
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+    include: ${SPRING_PROFILES_INCLUDE:swagger,datasource,actuator,grpc,redis}
+logging:
+  level:
+    io.grpc: DEBUG
+    net.devh.boot.grpc: DEBUG
+    net.devh.boot.grpc.metrics: DEBUG
