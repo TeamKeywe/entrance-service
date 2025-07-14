@@ -89,6 +89,9 @@ dependencies {
     // Tenant-Context
     implementation 'com.doubleo:tenant-context:0.0.2'
 
+    // redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
 }
 
 dependencyManagement {
