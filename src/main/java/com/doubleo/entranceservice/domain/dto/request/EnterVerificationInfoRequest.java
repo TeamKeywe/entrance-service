@@ -13,6 +13,7 @@ public record EnterVerificationInfoRequest(
         String memberName,
         Long hospitalId,
         List<String> accessAreaCodes,
+        Long patientId,
         VisitCategory visitCategory,
         LocalDateTime startedAt,
         LocalDateTime expiredAt,
