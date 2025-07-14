@@ -2,6 +2,8 @@ package com.doubleo.entranceservice.domain.dto.request;
 
 import com.doubleo.entranceservice.domain.enums.DeviceLocationType;
 import com.doubleo.entranceservice.domain.enums.Direction;
+import com.doubleo.entranceservice.domain.enums.VisitCategory;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -11,7 +13,7 @@ public record EnterVerificationInfoRequest(
         String memberName,
         Long hospitalId,
         List<String> accessAreaCodes,
-        String visitCategory,
+        VisitCategory visitCategory,
         LocalDateTime startedAt,
         LocalDateTime expiredAt,
         DeviceLocationType deviceLocationType,
