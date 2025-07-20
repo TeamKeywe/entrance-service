@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ public class EntranceServiceImpl implements EntranceService {
 
     private final LogClient logClient;
     private final HospitalClient hospitalClient;
+    private final StringRedisTemplate redisTemplate;
 
     @Override
     public EnterVerificationInfoResponse verifyEntrance(
@@ -45,12 +47,28 @@ public class EntranceServiceImpl implements EntranceService {
             return new EnterVerificationInfoResponse(false, "해당 구역에는 출입 권한이 없습니다.");
         }
 
-        if (VisitCategory.GUARDIAN.equals(request.visitCategory()) && Direction.IN.equals(request.direction())) {
+        boolean isGuardianIn = VisitCategory.GUARDIAN.equals(request.visitCategory()) &&
+                Direction.IN.equals(request.direction());
+
+        boolean isGuardianOut = VisitCategory.GUARDIAN.equals(request.visitCategory()) &&
+                Direction.OUT.equals(request.direction());
+
+        String redisKey = String.format("guardian:count:%s:%s", tenantId, request.patientId());
+
+        if (isGuardianIn) {
             long maxGuardianNum = hospitalClient.getMaximumGuardianNum(tenantId);
 
-            // 현재 입장 상태인 보호자 수 임시 값 사용
-            // 입장 상태 보호자 수 snapshot table 기준으로 redis 캐싱 방식으로 수정 예정
-            long currentGuardianCount = 2;
+            String countStr = redisTemplate.opsForValue().get(redisKey);
+
+            long currentGuardianCount = 0;
+            if (countStr != null) {
+                currentGuardianCount = Long.parseLong(countStr);
+            } else {
+                // redis에 키가 없으면 0으로 간주하여 현재 보호자 수를 판단함
+                // redis 키가 없을 경우 로그 서비스에서 해당 환자의 입장 기록을 집계하여
+                // 입장 상태 보호자 수를 재계산 후 redis에 복구하는 로직이 추가 예정
+                log.info("redis에서 보호자 입장 수 데이터를 찾을 수 없어 기본값 0을 사용 redisKey={}", redisKey);
+            }
 
             if (currentGuardianCount >= maxGuardianNum) {
                 return new EnterVerificationInfoResponse(false, "최대 보호자 입장 수를 초과하였습니다.");
@@ -76,6 +94,15 @@ public class EntranceServiceImpl implements EntranceService {
                         request.passId(),
                         request.visitCategory());
             }
+
+            if (isGuardianIn) {
+                redisTemplate.opsForValue().increment(redisKey);
+            }
+
+            if (isGuardianOut) {
+                redisTemplate.opsForValue().decrement(redisKey);
+            }
+
         } catch (Exception e) {
             log.warn("출입 로그 기록 실패: {}", e.getMessage());
         }
@@ -92,4 +119,5 @@ public class EntranceServiceImpl implements EntranceService {
                                 allowed.equals(deviceAreaCode)
                                         || allowed.startsWith(deviceAreaCode + "_"));
     }
+
 }
