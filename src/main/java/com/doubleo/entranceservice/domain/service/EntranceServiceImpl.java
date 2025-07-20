@@ -3,9 +3,11 @@ package com.doubleo.entranceservice.domain.service;
 import com.doubleo.entranceservice.domain.dto.request.EnterVerificationInfoRequest;
 import com.doubleo.entranceservice.domain.dto.response.EnterVerificationInfoResponse;
 import com.doubleo.entranceservice.domain.enums.DeviceLocationType;
+import com.doubleo.entranceservice.domain.enums.Direction;
 import com.doubleo.entranceservice.domain.enums.VisitCategory;
 import com.doubleo.entranceservice.global.exception.CommonException;
 import com.doubleo.entranceservice.global.exception.errorcode.EntranceErrorCode;
+import com.doubleo.entranceservice.grpc.client.HospitalClient;
 import com.doubleo.entranceservice.grpc.client.LogClient;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class EntranceServiceImpl implements EntranceService {
 
     private final LogClient logClient;
+    private final HospitalClient hospitalClient;
 
     @Override
     public EnterVerificationInfoResponse verifyEntrance(
@@ -42,6 +45,18 @@ public class EntranceServiceImpl implements EntranceService {
             return new EnterVerificationInfoResponse(false, "해당 구역에는 출입 권한이 없습니다.");
         }
 
+        if (VisitCategory.GUARDIAN.equals(request.visitCategory()) && Direction.IN.equals(request.direction())) {
+            long maxGuardianNum = hospitalClient.getMaximumGuardianNum(tenantId);
+
+            // 현재 입장 상태인 보호자 수 임시 값 사용
+            // 입장 상태 보호자 수 snapshot table 기준으로 redis 캐싱 방식으로 수정 예정
+            long currentGuardianCount = 2;
+
+            if (currentGuardianCount >= maxGuardianNum) {
+                return new EnterVerificationInfoResponse(false, "최대 보호자 입장 수를 초과하였습니다.");
+            }
+        }
+
         try {
             if (request.deviceLocationType() == DeviceLocationType.BUILDING) {
                 logClient.createBuildingEnterLog(
@@ -51,7 +66,7 @@ public class EntranceServiceImpl implements EntranceService {
                         request.memberName(),
                         request.passId(),
                         request.direction(),
-                        VisitCategory.valueOf(request.visitCategory()));
+                        request.visitCategory());
             } else {
                 logClient.createEnterLog(
                         tenantId,
@@ -59,7 +74,7 @@ public class EntranceServiceImpl implements EntranceService {
                         request.memberId(),
                         request.memberName(),
                         request.passId(),
-                        VisitCategory.valueOf(request.visitCategory()));
+                        request.visitCategory());
             }
         } catch (Exception e) {
             log.warn("출입 로그 기록 실패: {}", e.getMessage());
